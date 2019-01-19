@@ -1,0 +1,30 @@
+{
+  "name": "cert-store",
+  "version": "0.0.1",
+  "description": "🔑",
+  "keywords": [
+    "cert",
+    "certificate",
+    "store",
+    "storage",
+    "keychain",
+    "root",
+    "ca",
+    "pem"
+  ],
+  "author": "Mike Kovařík",
+  "license": "MIT",
+  "homepage": "http://mutiny.cz/cert-store",
+  "bugs": "https://github.com/MikeKovarik/cert-store/issues/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/MikeKovarik/cert-store.git"
+  },
+  "devDependencies": {
+    "rollup": "^0.64.1",
+    "rollup-plugin-notify": "^1.0.3"
+  },
+  "dependencies": {
+    "node-forge": "^0.7.5"
+  }
+}

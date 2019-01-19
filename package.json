@@ -21,8 +21,8 @@
     "url": "https://github.com/MikeKovarik/cert-store.git"
   },
   "scripts": {
-	  "build": "rollup -c",
-	  "warch": "rollup -c -w"
+    "build": "rollup -c",
+    "warch": "rollup -c -w"
   },
   "devDependencies": {
     "rollup": "^0.64.1",

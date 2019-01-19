@@ -25,6 +25,13 @@ async function ensureDirectory(directory) {
 
 const LINUX_CERT_DIR = '/usr/share/ca-certificates/extra/'
 
+function isNodeForgeCert(arg) {
+	if (typeof arg !== 'object') return false
+	return arg.version !== undefined
+		&& arg.serialNumber !== undefined
+		&& arg.signature !== undefined
+		&& arg.publicKey !== undefined
+}
 
 class CertStruct {
 
@@ -39,7 +46,10 @@ class CertStruct {
 		} else if (typeof arg === 'object') {
 			this.path = arg.path || arg.path
 			this.serialNumber = arg.serialNumber
-			this.pem = arg.pem || arg.cert || arg.data
+			if (isNodeForgeCert(arg))
+				this.pem = forge.pki.certificateToPem(arg)
+			else
+				this.pem = arg.pem || arg.cert || arg.data
 		}
 	}
 
@@ -113,8 +123,13 @@ export default class CertStore {
 				} else if (arg.pem) {
 					var tempPath = `temp-${Date.now()}-${Math.random()}.crt`
 					await fs.writeFile(tempPath, arg.pem)
-					await exec(`certutil -addstore -user -f root "${tempPath}"`)
-					await fs.unlink(tempPath)
+					try {
+						await exec(`certutil -addstore -user -f root "${tempPath}"`)
+					} catch(err) {
+						throw new Error(`Couldn't install certificate`)
+					} finally {
+						await fs.unlink(tempPath)
+					}
 				} else {
 					throw new Error('path to or contents of the certificate has to be defined.')
 				}

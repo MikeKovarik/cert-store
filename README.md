@@ -30,6 +30,11 @@ Using pem string.
 import certstore from 'cert-store'
 
 var pem = `
+-----BEGIN CERTIFICATE-----
+MIIB8TCCAVqgAwIBAgIJF7pYoC10fT2eMA0GCSqGSIb3DQEBCwUAMCsxKTAnBgNV
+...
+ZlMu5/XGsj/RuQx8iwEMHokKvEkW
+-----END CERTIFICATE-----
 `
 
 // Install certificate from pem string.

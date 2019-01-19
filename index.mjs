@@ -1,7 +1,7 @@
 import forge from 'node-forge'
 import path from 'path'
 import cp from 'child_process'
-import util, { isBuffer } from 'util'
+import util from 'util'
 import _fs from 'fs'
 
 
@@ -87,7 +87,7 @@ class CertStruct {
 }
 
 // https://manuals.gfi.com/en/kerio/connect/content/server-configuration/ssl-certificates/adding-trusted-root-certificates-to-the-server-1605.html
-export class CertStore {
+export default class CertStore {
 
 	// Only works on linux (ubuntu, debian).
 	// Finds certificate in /usr/share/ca-certificates/extra/ by its serial number.

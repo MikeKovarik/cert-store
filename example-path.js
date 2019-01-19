@@ -1,5 +1,5 @@
-//var {Cert} = require('selfsigned-ca')
-var {CertStore} = require('./index.js')
+//var certstore = require('cert-store')
+var certstore = require('./index.js')
 
 
 main().catch(console.error)
@@ -8,25 +8,25 @@ async function main() {
 
 	var certPath = './testsrv.root-ca.crt'
 
-	var installed = await CertStore.isInstalled(certPath)
+	var installed = await certstore.isInstalled(certPath)
 	console.log('isInstalled()', installed)
 
 	if (!installed) {
 
 		console.log('installing')
-		await CertStore.install(certPath)
+		await certstore.install(certPath)
 		console.log('installed')
 
-		installed = await CertStore.isInstalled(certPath)
+		installed = await certstore.isInstalled(certPath)
 		console.log('isInstalled()', installed)
 
 	}
 
 	console.log('deleting')
-	await CertStore.delete(certPath)
+	await certstore.delete(certPath)
 	console.log('deleted')
 
-	installed = await CertStore.isInstalled(certPath)
+	installed = await certstore.isInstalled(certPath)
 	console.log('isInstalled()', installed)
 
 

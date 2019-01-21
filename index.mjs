@@ -22,8 +22,15 @@ async function ensureDirectory(directory) {
 	}
 }
 
-
-const LINUX_CERT_DIR = '/usr/share/ca-certificates/extra/'
+// accepts PEM string, removes the --- header/footer, and calculates sha1 hash/thumbprint/fingerprint
+function pemToHash(pem) {
+	return pem.toString()
+	.replace(BEGIN, '')
+	.replace(END, '')
+	.replace(/\r+/g, '')
+	.replace(/\n+/g, '')
+	.trim()
+}
 
 function isNodeForgeCert(arg) {
 	if (typeof arg !== 'object') return false
@@ -32,6 +39,10 @@ function isNodeForgeCert(arg) {
 		&& arg.signature !== undefined
 		&& arg.publicKey !== undefined
 }
+
+const LINUX_CERT_DIR = '/usr/share/ca-certificates/extra/'
+const MAC_DIR = '/System/Library/Keychains/SystemRootCertificates.keychain'
+//const MAC_DIR = '/Library/Keychains/System.keychain'
 
 class CertStruct {
 
@@ -54,6 +65,7 @@ class CertStruct {
 	}
 
 	async ensureCertReadFromFs() {
+		if (this.pem) return
 		if (!this.path) return
 		this.pem = (await fs.readFile(this.path)).toString()
 	}
@@ -114,7 +126,18 @@ export default class CertStore {
 		}
 	}
 
-	// INSTALL
+	static async createTempFileIfNeeded(arg) {
+		if (arg.path) return
+		arg.tempPath = `temp-${Date.now()}-${Math.random()}.crt`
+		await fs.writeFile(arg.tempPath, arg.pem)
+	}
+
+	static async deleteTempFileIfNeeded(arg) {
+		if (!arg.tempPath) return
+		await fs.unlink(arg.tempPath)
+	}
+
+	// SUGARY METHODS
 
 	static async install(arg) {
 		arg = new CertStruct(arg)
@@ -128,75 +151,10 @@ export default class CertStore {
 			}
 		} catch(err) {
 			throw new Error(`Couldn't install certificate.\n${err.stack}`)
+		} finally {
+			this.deleteTempFileIfNeeded(arg)
 		}
 	}
-
-	static async installWindows(arg) {
-		if (arg.path) {
-			await exec(`certutil -addstore -user -f root "${arg.path}"`)
-		} else if (arg.pem) {
-			var tempPath = `temp-${Date.now()}-${Math.random()}.crt`
-			await fs.writeFile(tempPath, arg.pem)
-			try {
-				await exec(`certutil -addstore -user -f root "${tempPath}"`)
-			} catch(err) {
-				throw err
-			} finally {
-				await fs.unlink(tempPath)
-			}
-		}
-	}
-
-	static async installLinux(arg) {
-		await ensureDirectory(LINUX_CERT_DIR)
-		var targetPath = LINUX_CERT_DIR + arg.name + '.crt'
-		if (!arg.pem && arg.path)
-			arg.pem = await fs.readFile(arg.path)
-		await fs.writeFile(targetPath, arg.pem)
-		await exec('update-ca-certificates')
-	}
-
-	static async installMac(arg) {
-		// TODO
-		throw new Error('install() not yet implemented on this platform')
-	}
-
-	// IS INSTALLED
-
-	static async isInstalled(arg) {
-		arg = new CertStruct(arg)
-		try {
-			switch (process.platform) {
-				case 'win32':	return await this.isInstalledWindows(arg)
-				case 'darwin':	return await this.isInstalledMac(arg)
-				default:		return await this.isInstalledLinux(arg)
-			}
-		} catch(err) {
-			throw new Error(`Couldn't find if certificate is installed.\n${err.stack}`)
-		}
-	}
-
-	static async isInstalledWindows(arg) {
-		await arg.ensureCertReadFromFs()
-		try {
-			await exec(`certutil -verifystore -user root ${arg.serialNumber}`)
-			return true
-		} catch(err) {
-			// certutil always fails if the serial number is not found.
-			return false
-		}
-	}
-
-	static async isInstalledLinux(arg) {
-		return !!(await this._findLinuxCert(arg))
-	}
-
-	static async isInstalledMac(arg) {
-		// TODO
-		throw new Error('isInstalled() not yet implemented on this platform')
-	}
-
-	// DELETE
 
 	static async delete(arg) {
 		arg = new CertStruct(arg)
@@ -211,9 +169,51 @@ export default class CertStore {
 		}
 	}
 
+	static async isInstalled(arg) {
+		arg = new CertStruct(arg)
+		try {
+			switch (process.platform) {
+				case 'win32':	return await this.isInstalledWindows(arg)
+				case 'darwin':	return await this.isInstalledMac(arg)
+				default:		return await this.isInstalledLinux(arg)
+			}
+		} catch(err) {
+			throw new Error(`Couldn't find if certificate is installed.\n${err.stack}`)
+		}
+	}
+
+	// WINDOWS
+
+	static async installWindows(arg) {
+		await this.createTempFileIfNeeded(arg)
+		await exec(`certutil -addstore -user -f root "${arg.path || arg.tempPath}"`)
+	}
+
 	static async deleteWindows(arg) {
 		await arg.ensureCertReadFromFs()
 		await exec(`certutil -delstore -user root ${arg.serialNumber}`)
+	}
+
+	static async isInstalledWindows(arg) {
+		await arg.ensureCertReadFromFs()
+		try {
+			await exec(`certutil -verifystore -user root ${arg.serialNumber}`)
+			return true
+		} catch(err) {
+			// certutil always fails if the serial number is not found.
+			return false
+		}
+	}
+
+	// LINUX
+
+	static async installLinux(arg) {
+		await ensureDirectory(LINUX_CERT_DIR)
+		var targetPath = LINUX_CERT_DIR + arg.name + '.crt'
+		if (!arg.pem && arg.path)
+			arg.pem = await fs.readFile(arg.path)
+		await fs.writeFile(targetPath, arg.pem)
+		await exec('update-ca-certificates')
 	}
 
 	static async deleteLinux(arg) {
@@ -221,9 +221,26 @@ export default class CertStore {
 		if (targetPath) await fs.unlink(targetPath)
 	}
 
+	static async isInstalledLinux(arg) {
+		return !!(await this._findLinuxCert(arg))
+	}
+
+	// MAC
+
+	static async installMac(arg) {
+		await this.createTempFileIfNeeded(arg)
+		await exec(`security add-trusted-cert -d -r trustRoot -k "${MAC_DIR}" "${arg.path}"`)
+	}
+
 	static async deleteMac(arg) {
+		await arg.ensureCertReadFromFs()
+		var fingerPrint = pemToHash(arg.pem)
+		await exec(`security delete-certificate -Z ${fingerPrint} "${MAC_DIR}"`)
+	}
+
+	static async isInstalledMac(arg) {
 		// TODO
-		throw new Error('delete() not yet implemented on this platform')
+		throw new Error('isInstalled() not yet implemented on this platform')
 	}
 
 }

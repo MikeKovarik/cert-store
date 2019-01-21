@@ -1,6 +1,6 @@
 # cert-store
 
-🔐
+🔐 Install, check and delete trusted root certificates.
 
 ## Installation
 
@@ -69,6 +69,9 @@ cert.sign(keys.privateKey)
 await certstore.install(cert)
 ```
 
+## Help needed
+
+This project was developed and tested on Windows and WSL Ubuntu. Mac is yet to be tested. If you're a mac user please submit issues, feedback and PRs.
 
 ## License
 

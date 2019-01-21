@@ -25,8 +25,8 @@ async function ensureDirectory(directory) {
 // accepts PEM string, removes the --- header/footer, and calculates sha1 hash/thumbprint/fingerprint
 function pemToHash(pem) {
 	return pem.toString()
-	.replace(BEGIN, '')
-	.replace(END, '')
+	.replace('-----BEGIN CERTIFICATE-----', '')
+	.replace('-----END CERTIFICATE-----', '')
 	.replace(/\r+/g, '')
 	.replace(/\n+/g, '')
 	.trim()

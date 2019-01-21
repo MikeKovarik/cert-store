@@ -1,6 +1,6 @@
 # cert-store
 
-🔑
+🔐
 
 ## Installation
 

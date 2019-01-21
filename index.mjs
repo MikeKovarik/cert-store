@@ -116,35 +116,38 @@ export default class CertStore {
 
 	static async install(arg) {
 		arg = new CertStruct(arg)
-		switch (process.platform) {
-			case 'win32':
-				if (arg.path) {
-					await exec(`certutil -addstore -user -f root "${arg.path}"`)
-				} else if (arg.pem) {
-					var tempPath = `temp-${Date.now()}-${Math.random()}.crt`
-					await fs.writeFile(tempPath, arg.pem)
-					try {
-						await exec(`certutil -addstore -user -f root "${tempPath}"`)
-					} catch(err) {
-						throw new Error(`Couldn't install certificate`)
-					} finally {
-						await fs.unlink(tempPath)
+		if (!arg.path && !arg.pem)
+			throw new Error('path to or contents of the certificate has to be defined.')
+		try {
+			switch (process.platform) {
+				case 'win32':
+					if (arg.path) {
+						await exec(`certutil -addstore -user -f root "${arg.path}"`)
+					} else if (arg.pem) {
+						var tempPath = `temp-${Date.now()}-${Math.random()}.crt`
+						await fs.writeFile(tempPath, arg.pem)
+						try {
+							await exec(`certutil -addstore -user -f root "${tempPath}"`)
+						} catch(err) {
+							await fs.unlink(tempPath)
+							throw err
+						}
 					}
-				} else {
-					throw new Error('path to or contents of the certificate has to be defined.')
-				}
-				return
-			case 'darwin':
-				console.warn('selfsigned-ca: CertStore.install() not yet implemented on this platform')
-				return // TODO
-			default:
-				await ensureDirectory(LINUX_CERT_DIR)
-				var targetPath = LINUX_CERT_DIR + arg.name + '.crt'
-				if (!arg.pem && arg.path)
-					arg.pem = await fs.readFile(arg.path)
-				await fs.writeFile(targetPath, arg.pem)
-				await exec('update-ca-certificates')
-				return
+					return
+				case 'darwin':
+					// TODO
+					throw new Error('install() not yet implemented on this platform')
+				default:
+					await ensureDirectory(LINUX_CERT_DIR)
+					var targetPath = LINUX_CERT_DIR + arg.name + '.crt'
+					if (!arg.pem && arg.path)
+						arg.pem = await fs.readFile(arg.path)
+					await fs.writeFile(targetPath, arg.pem)
+					await exec('update-ca-certificates')
+					return
+			}
+		} catch(err) {
+			throw new Error(`Couldn't install certificate.\n${err.stack}`)
 		}
 	}
 
@@ -152,17 +155,17 @@ export default class CertStore {
 		arg = new CertStruct(arg)
 		switch (process.platform) {
 			case 'win32':
+				await arg.ensureCertReadFromFs()
 				try {
-					await arg.ensureCertReadFromFs()
 					await exec(`certutil -verifystore -user root ${arg.serialNumber}`)
 					return true
 				} catch(err) {
-					//console.error(err)
+					// certutil always fails if the serial number is not found.
 					return false
 				}
 			case 'darwin':
-				console.warn('selfsigned-ca: CertStore.isInstalled() not yet implemented on this platform')
-				return // TODO
+				// TODO
+				throw new Error('isInstalled() not yet implemented on this platform')
 			default:
 				return !!(await this._findLinuxCert(arg))
 		}
@@ -176,12 +179,12 @@ export default class CertStore {
 				await exec(`certutil -delstore -user root ${arg.serialNumber}`)
 				return
 			case 'darwin':
-				console.warn('selfsigned-ca: CertStore.delete() not yet implemented on this platform')
-				return // TODO
+				// TODO
+				throw new Error('delete() not yet implemented on this platform')
 			default:
 				var targetPath = await this._findLinuxCert(arg)
 				if (targetPath) await fs.unlink(targetPath)
-				return false
+				return
 		}
 	}
 

@@ -18,7 +18,7 @@ ZlMu5/XGsj/RuQx8iwEMHokKvEkW
 -----END CERTIFICATE-----
 `
 
-certstore.install(pem.trim())
-	.then(() => console.log('installed certificate from pem string'))
-	.then(err => console.error(err))
+certstore.delete(pem)
+	.then(() => console.log('deleted certificate'))
+	.catch(err => console.error(err))
 

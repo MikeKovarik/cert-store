@@ -14,4 +14,4 @@ var pem = forge.pki.certificateToPem(certificate)
 
 certstore.install(certificate)
 	.then(() => console.log('installed node-forge certificate object'))
-	.then(err => console.error(err))
+	.catch(err => console.error(err))

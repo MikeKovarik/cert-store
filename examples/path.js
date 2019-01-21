@@ -29,5 +29,4 @@ async function main() {
 	installed = await certstore.isInstalled(certPath)
 	console.log('isInstalled()', installed)
 
-
 }

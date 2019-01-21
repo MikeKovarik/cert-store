@@ -114,78 +114,116 @@ export default class CertStore {
 		}
 	}
 
+	// INSTALL
+
 	static async install(arg) {
 		arg = new CertStruct(arg)
 		if (!arg.path && !arg.pem)
 			throw new Error('path to or contents of the certificate has to be defined.')
 		try {
 			switch (process.platform) {
-				case 'win32':
-					if (arg.path) {
-						await exec(`certutil -addstore -user -f root "${arg.path}"`)
-					} else if (arg.pem) {
-						var tempPath = `temp-${Date.now()}-${Math.random()}.crt`
-						await fs.writeFile(tempPath, arg.pem)
-						try {
-							await exec(`certutil -addstore -user -f root "${tempPath}"`)
-						} catch(err) {
-							await fs.unlink(tempPath)
-							throw err
-						}
-					}
-					return
-				case 'darwin':
-					// TODO
-					throw new Error('install() not yet implemented on this platform')
-				default:
-					await ensureDirectory(LINUX_CERT_DIR)
-					var targetPath = LINUX_CERT_DIR + arg.name + '.crt'
-					if (!arg.pem && arg.path)
-						arg.pem = await fs.readFile(arg.path)
-					await fs.writeFile(targetPath, arg.pem)
-					await exec('update-ca-certificates')
-					return
+				case 'win32':	return await this.installWindows(arg)
+				case 'darwin':	return await this.installMac(arg)
+				default:		return await this.installLinux(arg)
 			}
 		} catch(err) {
 			throw new Error(`Couldn't install certificate.\n${err.stack}`)
 		}
 	}
 
-	static async isInstalled(arg) {
-		arg = new CertStruct(arg)
-		switch (process.platform) {
-			case 'win32':
-				await arg.ensureCertReadFromFs()
-				try {
-					await exec(`certutil -verifystore -user root ${arg.serialNumber}`)
-					return true
-				} catch(err) {
-					// certutil always fails if the serial number is not found.
-					return false
-				}
-			case 'darwin':
-				// TODO
-				throw new Error('isInstalled() not yet implemented on this platform')
-			default:
-				return !!(await this._findLinuxCert(arg))
+	static async installWindows(arg) {
+		if (arg.path) {
+			await exec(`certutil -addstore -user -f root "${arg.path}"`)
+		} else if (arg.pem) {
+			var tempPath = `temp-${Date.now()}-${Math.random()}.crt`
+			await fs.writeFile(tempPath, arg.pem)
+			try {
+				await exec(`certutil -addstore -user -f root "${tempPath}"`)
+			} catch(err) {
+				throw err
+			} finally {
+				await fs.unlink(tempPath)
+			}
 		}
 	}
 
+	static async installLinux(arg) {
+		await ensureDirectory(LINUX_CERT_DIR)
+		var targetPath = LINUX_CERT_DIR + arg.name + '.crt'
+		if (!arg.pem && arg.path)
+			arg.pem = await fs.readFile(arg.path)
+		await fs.writeFile(targetPath, arg.pem)
+		await exec('update-ca-certificates')
+	}
+
+	static async installMac(arg) {
+		// TODO
+		throw new Error('install() not yet implemented on this platform')
+	}
+
+	// IS INSTALLED
+
+	static async isInstalled(arg) {
+		arg = new CertStruct(arg)
+		try {
+			switch (process.platform) {
+				case 'win32':	return await this.isInstalledWindows(arg)
+				case 'darwin':	return await this.isInstalledMac(arg)
+				default:		return await this.isInstalledLinux(arg)
+			}
+		} catch(err) {
+			throw new Error(`Couldn't find if certificate is installed.\n${err.stack}`)
+		}
+	}
+
+	static async isInstalledWindows(arg) {
+		await arg.ensureCertReadFromFs()
+		try {
+			await exec(`certutil -verifystore -user root ${arg.serialNumber}`)
+			return true
+		} catch(err) {
+			// certutil always fails if the serial number is not found.
+			return false
+		}
+	}
+
+	static async isInstalledLinux(arg) {
+		return !!(await this._findLinuxCert(arg))
+	}
+
+	static async isInstalledMac(arg) {
+		// TODO
+		throw new Error('isInstalled() not yet implemented on this platform')
+	}
+
+	// DELETE
+
 	static async delete(arg) {
 		arg = new CertStruct(arg)
-		switch (process.platform) {
-			case 'win32':
-				await arg.ensureCertReadFromFs()
-				await exec(`certutil -delstore -user root ${arg.serialNumber}`)
-				return
-			case 'darwin':
-				// TODO
-				throw new Error('delete() not yet implemented on this platform')
-			default:
-				var targetPath = await this._findLinuxCert(arg)
-				if (targetPath) await fs.unlink(targetPath)
-				return
+		try {
+			switch (process.platform) {
+				case 'win32':	return await this.deleteWindows(arg)
+				case 'darwin':	return await this.deleteMac(arg)
+				default:		return await this.deleteLinux(arg)
+			}
+		} catch(err) {
+			throw new Error(`Couldn't delete certificate.\n${err.stack}`)
 		}
+	}
+
+	static async deleteWindows(arg) {
+		await arg.ensureCertReadFromFs()
+		await exec(`certutil -delstore -user root ${arg.serialNumber}`)
+	}
+
+	static async deleteLinux(arg) {
+		var targetPath = await this._findLinuxCert(arg)
+		if (targetPath) await fs.unlink(targetPath)
+	}
+
+	static async deleteMac(arg) {
+		// TODO
+		throw new Error('delete() not yet implemented on this platform')
 	}
 
 }

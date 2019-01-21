@@ -6,7 +6,7 @@ main().catch(console.error)
 
 async function main() {
 
-	var certPath = './example-cert.crt'
+	var certPath = './testcert.crt'
 
 	var installed = await certstore.isInstalled(certPath)
 	console.log('isInstalled()', installed)

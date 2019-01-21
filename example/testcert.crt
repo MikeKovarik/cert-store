@@ -1,8 +1,3 @@
-//var certstore = require('cert-store')
-var certstore = require('./index.js')
-
-
-var pem = `
 -----BEGIN CERTIFICATE-----
 MIIB8TCCAVqgAwIBAgIJF7pYoC10fT2eMA0GCSqGSIb3DQEBCwUAMCsxKTAnBgNV
 BAMTIE15IFRydXN0ZWQgQ2VydGlmaWNhdGUgQXV0aG9yaXR5MB4XDTE5MDExOTIw
@@ -16,9 +11,3 @@ HiMHFi1dfjBo8f6yUioeTpClQzyYdU+Tlaxn5Y7E+Vf9NjWR6JgjhIR8wscjbzVG
 xXNDY8lP/q7KiQoff38YbGXKDpAsdAWXiI8K7b9y/OSWm7k0Sy+GzeTrTMKdMAZ4
 ZlMu5/XGsj/RuQx8iwEMHokKvEkW
 -----END CERTIFICATE-----
-`
-
-certstore.install(pem.trim())
-	.then(() => console.log('installed certificate from pem string'))
-	.then(err => console.error(err))
-

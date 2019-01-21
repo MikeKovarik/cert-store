@@ -1,7 +1,7 @@
 var forge = require('node-forge')
 var {createRootCa} = require('selfsigned-ca')
 //var certstore = require('cert-store')
-var certstore = require('./index.js')
+var certstore = require('../index.js')
 
 
 // selfsigned-ca internally calls node-forge to create CA certificate.

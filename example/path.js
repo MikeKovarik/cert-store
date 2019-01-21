@@ -1,12 +1,12 @@
 //var certstore = require('cert-store')
-var certstore = require('./index.js')
+var certstore = require('../index.js')
 
 
 main().catch(console.error)
 
 async function main() {
 
-	var certPath = './testsrv.root-ca.crt'
+	var certPath = './example-cert.crt'
 
 	var installed = await certstore.isInstalled(certPath)
 	console.log('isInstalled()', installed)

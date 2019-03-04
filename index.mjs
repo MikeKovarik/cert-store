@@ -117,7 +117,7 @@ class CertStruct {
 }
 
 // https://manuals.gfi.com/en/kerio/connect/content/server-configuration/ssl-certificates/adding-trusted-root-certificates-to-the-server-1605.html
-export default class CertStore {
+class CertStore {
 
 	// Only works on linux (ubuntu, debian).
 	// Finds certificate in /usr/share/ca-certificates/extra/ by its serial number.
@@ -152,11 +152,7 @@ export default class CertStore {
 		if (!arg.path && !arg.pem)
 			throw new Error('path to or contents of the certificate has to be defined.')
 		try {
-			switch (process.platform) {
-				case 'win32':	return await this.installWindows(arg)
-				case 'darwin':	return await this.installMac(arg)
-				default:		return await this.installLinux(arg)
-			}
+			return await this._install(arg)
 		} catch(err) {
 			throw new Error(`Couldn't install certificate.\n${err.stack}`)
 		} finally {
@@ -167,11 +163,7 @@ export default class CertStore {
 	static async delete(arg) {
 		arg = new CertStruct(arg)
 		try {
-			switch (process.platform) {
-				case 'win32':	return await this.deleteWindows(arg)
-				case 'darwin':	return await this.deleteMac(arg)
-				default:		return await this.deleteLinux(arg)
-			}
+			return await this._delete(arg)
 		} catch(err) {
 			throw new Error(`Couldn't delete certificate.\n${err.stack}`)
 		}
@@ -180,29 +172,28 @@ export default class CertStore {
 	static async isInstalled(arg) {
 		arg = new CertStruct(arg)
 		try {
-			switch (process.platform) {
-				case 'win32':	return await this.isInstalledWindows(arg)
-				case 'darwin':	return await this.isInstalledMac(arg)
-				default:		return await this.isInstalledLinux(arg)
-			}
+			return await this._isInstalled(arg)
 		} catch(err) {
 			throw new Error(`Couldn't find if certificate is installed.\n${err.stack}`)
 		}
 	}
 
-	// WINDOWS
+}
 
-	static async installWindows(arg) {
+
+class WindowsCertStore extends CertStore {
+
+	static async _install(arg) {
 		await this.createTempFileIfNeeded(arg)
 		await exec(`certutil -addstore -user -f root "${arg.path || arg.tempPath}"`)
 	}
 
-	static async deleteWindows(arg) {
+	static async _delete(arg) {
 		await arg.ensureCertReadFromFs()
 		await exec(`certutil -delstore -user root ${arg.serialNumber}`)
 	}
 
-	static async isInstalledWindows(arg) {
+	static async _isInstalled(arg) {
 		await arg.ensureCertReadFromFs()
 		try {
 			await exec(`certutil -verifystore -user root ${arg.serialNumber}`)
@@ -213,9 +204,12 @@ export default class CertStore {
 		}
 	}
 
-	// LINUX
+}
 
-	static async installLinux(arg) {
+
+class LinuxCertStore extends CertStore {
+
+	static async _install(arg) {
 		await ensureDirectory(LINUX_CERT_DIR)
 		var targetPath = LINUX_CERT_DIR + arg.name + '.crt'
 		if (!arg.pem && arg.path)
@@ -224,32 +218,52 @@ export default class CertStore {
 		await exec('update-ca-certificates')
 	}
 
-	static async deleteLinux(arg) {
+	static async _delete(arg) {
 		var targetPath = await this._findLinuxCert(arg)
 		if (targetPath) await fs.unlink(targetPath)
 	}
 
-	static async isInstalledLinux(arg) {
+	static async _isInstalled(arg) {
 		return !!(await this._findLinuxCert(arg))
 	}
 
-	// MAC
+}
 
-    // Not tested. I don't have a mac. help needed.
-	static async installMac(arg) {
+
+// Not tested. I don't have a mac. help needed.
+class MacCertStore extends CertStore {
+
+	static async _install(arg) {
 		await this.createTempFileIfNeeded(arg)
 		await exec(`security add-trusted-cert -d -r trustRoot -k "${MAC_DIR}" "${arg.path}"`)
 	}
 
-	static async deleteMac(arg) {
+	static async _delete(arg) {
 		await arg.ensureCertReadFromFs()
 		var fingerPrint = pemToHash(arg.pem)
 		await exec(`security delete-certificate -Z ${fingerPrint} "${MAC_DIR}"`)
 	}
 
-	static async isInstalledMac(arg) {
+	static async _isInstalled(arg) {
 		// TODO
 		throw new Error('isInstalled() not yet implemented on this platform')
 	}
 
 }
+
+
+var PlatformSpecificCertStore
+
+switch (process.platform) {
+    case 'win32':
+        PlatformSpecificCertStore = WindowsCertStore
+        break
+    case 'darwin':
+        PlatformSpecificCertStore = MacCertStore
+        break
+    default:
+        PlatformSpecificCertStore = LinuxCertStore
+        break
+}
+
+export default PlatformSpecificCertStore

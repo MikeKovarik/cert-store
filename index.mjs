@@ -1,6 +1,7 @@
 import forge from 'node-forge'
 import path from 'path'
 import cp from 'child_process'
+import os from 'os'
 import util from 'util'
 import _fs from 'fs'
 
@@ -41,8 +42,15 @@ function isNodeForgeCert(arg) {
 }
 
 const LINUX_CERT_DIR = '/usr/share/ca-certificates/extra/'
-const MAC_DIR = '/System/Library/Keychains/SystemRootCertificates.keychain'
-//const MAC_DIR = '/Library/Keychains/System.keychain'
+// Not tested. I don't have a mac. help needed.
+var MAC_DIR
+if (os.platform() === 'darwin') {
+    let [major, minor] = os.release().split('.').map(Number)
+    if (major >= 10 && minor >= 14)
+        MAC_DIR = '/Library/Keychains/System.keychain'
+    else
+        MAC_DIR = '/System/Library/Keychains/SystemRootCertificates.keychain'
+}
 
 class CertStruct {
 
@@ -227,6 +235,7 @@ export default class CertStore {
 
 	// MAC
 
+    // Not tested. I don't have a mac. help needed.
 	static async installMac(arg) {
 		await this.createTempFileIfNeeded(arg)
 		await exec(`security add-trusted-cert -d -r trustRoot -k "${MAC_DIR}" "${arg.path}"`)

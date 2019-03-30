@@ -29,6 +29,7 @@
     "rollup-plugin-notify": "^1.0.3"
   },
   "dependencies": {
-    "node-forge": "^0.7.6"
+    "node-forge": "^0.7.6",
+    "sudo-prompt": "^8.2.5"
   }
 }

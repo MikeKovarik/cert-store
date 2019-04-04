@@ -4,6 +4,9 @@ import cp from 'child_process'
 import os from 'os'
 import util from 'util'
 import _fs from 'fs'
+import sudo from 'sudo-prompt'
+
+const __dirname = path.dirname(new URL(import.meta.url).pathname);
 
 
 var exec = util.promisify(cp.exec)
@@ -46,10 +49,9 @@ const LINUX_CERT_DIR = '/usr/share/ca-certificates/extra/'
 var MAC_DIR
 if (os.platform() === 'darwin') {
     let [major, minor] = os.release().split('.').map(Number)
-    if (major >= 10 && minor >= 14)
-        MAC_DIR = '/Library/Keychains/System.keychain'
-    else
-        MAC_DIR = '/System/Library/Keychains/SystemRootCertificates.keychain'
+    // if (major >= 10 || minor >= 14)
+    MAC_DIR = '/Library/Keychains/System.keychain' // works on major: 16, minor: 7
+    // MAC_DIR = '/System/Library/Keychains/SystemRootCertificates.keychain'
 }
 
 class CertStruct {
@@ -235,18 +237,28 @@ class MacCertStore extends CertStore {
 
 	static async _install(arg) {
 		await this.createTempFileIfNeeded(arg)
-		await exec(`security add-trusted-cert -d -r trustRoot -k "${MAC_DIR}" "${arg.path}"`)
+		const certPath = path.join(__dirname, arg.tempPath)
+		const cmd = `security add-trusted-cert -d -k "${MAC_DIR}" "${certPath}"`
+
+		await new Promise((resolve, reject) => {
+			sudo.exec(cmd, err => err ? reject(err) : resolve() )
+		})
 	}
 
 	static async _delete(arg) {
 		await arg.ensureCertReadFromFs()
-		var fingerPrint = pemToHash(arg.pem)
-		await exec(`security delete-certificate -Z ${fingerPrint} "${MAC_DIR}"`)
+		var fingerPrint = forge.md.sha1.create().update(forge.asn1.toDer(forge.pki.certificateToAsn1(arg.certificate)).getBytes()).digest().toHex()
+
+		const cmd = `security delete-certificate -Z ${fingerPrint} "${MAC_DIR}"`
+		await new Promise((resolve, reject) => {
+			sudo.exec(cmd, err => err ? reject(err) : resolve())
+		})
 	}
 
 	static async _isInstalled(arg) {
-		// TODO
-		throw new Error('isInstalled() not yet implemented on this platform')
+		const allCerts = await exec(`security  find-certificate -a -p`)
+		const pem = arg.pem.replace(/\r/g, '')
+		return allCerts.stdout.includes(pem)
 	}
 
 }
